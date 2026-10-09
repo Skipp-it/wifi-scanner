@@ -62,70 +62,36 @@ final class ScanViewModel: ObservableObject {
     private func runScan() async {
         defer { isScanning = false }
 
-        // 1. Figure out the subnet.
-        progress = ScanProgress(phase: "Reading network…")
-        guard let info = LocalNetwork.current() else {
+        // Populate network info early so the UI can show IP/router during the scan.
+        networkInfo = LocalNetwork.current()
+        guard networkInfo != nil else {
             errorMessage = "Couldn't read the local network. Make sure you're on Wi‑Fi (not cellular) and have granted Local Network permission in Settings."
             return
         }
-        networkInfo = info
-        progress.hostsTotal = info.hostAddresses.count
 
-        // 2. Bonjour browse (in parallel with the ping sweep).
-        async let bonjour = BonjourBrowser().browse(duration: 4.0)
-
-        // 3. Host discovery sweep.
-        progress.phase = "Discovering hosts…"
-        let alive = await HostDiscovery.discover(hosts: info.hostAddresses) { [weak self] done, _ in
-            Task { @MainActor in
-                guard let self else { return }
-                self.progress.hostsScanned = done
-                self.progress.fraction = self.progress.hostsTotal > 0
-                    ? Double(done) / Double(self.progress.hostsTotal) * 0.4 : 0
+        let options = AuditEngine.Options(checkDefaultCredentials: checkDefaultCredentials)
+        let snapshot: ScanSnapshot?
+        do {
+            snapshot = try await ScanService().run(options: options) { [weak self] prog, devs in
+                Task { @MainActor in
+                    guard let self else { return }
+                    self.progress = prog
+                    if !devs.isEmpty { self.devices = devs }
+                }
             }
+        } catch {
+            errorMessage = "Couldn't read the local network. Make sure you're on Wi‑Fi (not cellular) and have granted Local Network permission in Settings."
+            return
         }
-        if Task.isCancelled { return }
 
-        // Ensure the gateway is always audited even if the sweep missed it.
-        var targets = alive
-        if !targets.contains(info.likelyGateway) { targets.insert(info.likelyGateway, at: 0) }
-
-        let bonjourResults = await bonjour
-        let bonjourByName = bonjourResults   // name→type map kept for display
-
-        // 4. Audit each live host.
-        progress.phase = "Auditing \(targets.count) devices…"
-        let engine = AuditEngine(options: .init(checkDefaultCredentials: checkDefaultCredentials))
-
-        var completed = 0
-        for ip in targets {
-            if Task.isCancelled { return }
-            let isGateway = (ip == info.likelyGateway)
-            let services = bonjourByName.map { "\($0.name) [\($0.type)]" }
-
-            let device = await engine.audit(
-                ip: ip,
-                isGateway: isGateway,
-                bonjourServices: isGateway ? services : [],
-                hostname: nil
-            )
-            devices.append(device)
-            devices.sort { ($0.isGateway ? 1 : 0, $0.highestSeverity ?? .info) > ($1.isGateway ? 1 : 0, $1.highestSeverity ?? .info) }
-
-            completed += 1
-            progress.devicesFound = devices.count
-            progress.fraction = 0.4 + (Double(completed) / Double(max(targets.count, 1))) * 0.6
-        }
+        guard let snapshot else { return }   // cancelled
 
         // Persist this run and compute the diff against the previous scan.
-        let snapshot = ScanSnapshot(localIP: info.localIP, gateway: info.likelyGateway, devices: devices)
+        devices = snapshot.devices
         if let previous = snapshots.first {
             lastDiff = ScanDiff.between(old: previous, new: snapshot)
         }
         store.save(snapshot)
         snapshots.insert(snapshot, at: 0)
-
-        progress.phase = "Done"
-        progress.fraction = 1.0
     }
 }
