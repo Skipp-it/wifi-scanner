@@ -1,0 +1,20 @@
+# Xcode / generated project
+HomeNetAudit.xcodeproj/
+*.xcworkspace/
+xcuserdata/
+DerivedData/
+build/
+*.xcuserstate
+
+# Swift Package Manager
+.build/
+.swiftpm/
+
+# macOS
+.DS_Store
+
+# Fastlane / misc
+fastlane/report.xml
+fastlane/Preview.html
+*.ipa
+*.dSYM.zip

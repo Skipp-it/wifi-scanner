@@ -1,0 +1,36 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>CFBundleName</key>
+    <string>HomeNetAudit</string>
+    <key>CFBundleDisplayName</key>
+    <string>HomeNetAudit</string>
+
+    <!-- iOS 14+ requires an explicit reason for ANY local-network access.
+         Without this key, Bonjour browsing and TCP connections to LAN hosts
+         are silently blocked. -->
+    <key>NSLocalNetworkUsageDescription</key>
+    <string>HomeNetAudit scans the local network you are connected to in order to find your own devices and audit them for security weaknesses. Only scan networks you own or are authorized to test.</string>
+
+    <!-- mDNS service types we enumerate. "_services._dns-sd._udp" is the
+         meta-query that reveals every advertised service type. -->
+    <key>NSBonjourServices</key>
+    <array>
+        <string>_services._dns-sd._udp</string>
+        <string>_http._tcp</string>
+        <string>_https._tcp</string>
+        <string>_ssh._tcp</string>
+        <string>_printer._tcp</string>
+        <string>_ipp._tcp</string>
+        <string>_airplay._tcp</string>
+        <string>_raop._tcp</string>
+        <string>_homekit._tcp</string>
+        <string>_hap._tcp</string>
+        <string>_googlecast._tcp</string>
+        <string>_smb._tcp</string>
+        <string>_afpovertcp._tcp</string>
+        <string>_rtsp._tcp</string>
+    </array>
+</dict>
+</plist>
